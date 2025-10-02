@@ -1,0 +1,86 @@
+---
+title: "analysis"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(labelled)
+library(haven)
+library(knitr)
+library(descr)
+```
+
+# Financial Stress in America
+
+**The goal of this project is to answer these questions:**
+
+1\) How does financial stress vary across age groups, particularly among younger adults, in the U.S., and how does it differ by sex and race?
+
+2\) How has financial stress for different age groups changed from 2007 to 2022
+
+## View Data
+
+```{r}
+# Define the file path (going up one level from /scripts to the main directory)
+file_path <- file.path("..", "data", "02data.sav")
+
+# Load the SAV file into a dataframe (automatically a tibble)
+df <- read_sav(file_path)
+
+# View the first few rows
+head(df)
+```
+
+#### Column Names
+
+```{r colnames}
+# Check colum names
+colnames(df)
+```
+
+#### Viewing summary statistics
+
+```{r summary}
+#View summary statistics
+summary(df)
+```
+
+#### Checking variable types
+
+```{r glimpse}
+#Check the data structure
+glimpse(df)
+```
+
+## Frequency Tables
+
+Here are some of my frequency tables: \[Age, Race, and Highest Level of Education\]
+
+### Age
+
+```{r}
+#Frequency table for age
+freq(as.ordered(df$DMAGE),plot=TRUE)
+```
+
+**Interpretation:** By looking at frequency table of age groups, I can identify how many respondents fall into each age bracket. This allows you to see whether younger adults are heavily represented and to focus analysis on them. I want to figure out if younger adults experience higher financial stress than older populations.
+
+### Race
+
+```{r}
+#Frequency table for race
+freq(as.ordered(df$FINRACEUS),plot=TRUE)
+```
+
+**Interpretation:** Comparing financial stress across racial groups can reveal disparities in experiences. Systemic factors like income inequality or access to financial resources can add to a demographic's level of financial stress.
+
+### Highest Level of Education
+
+```{r}
+#Frequency table for Highest Level of Education
+freq(as.ordered(df$DMEDUUS),plot=TRUE)
+
+```
+
+**Interpretation:** Education level often correlates with financial security and earning potential. Examining the distribution of education categories helps me evalute whether stress is concentrated among those with lower educational attainment or if higher education buffers financial stress in modern America.

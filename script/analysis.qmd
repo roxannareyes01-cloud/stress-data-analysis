@@ -9,21 +9,23 @@ library(labelled)
 library(haven)
 library(knitr)
 library(descr)
+library(ggplot2)
+library(dplyr)
 ```
 
-# Financial Stress in America
+# 💵 Financial Stress in America 💴 {style="color:#FF1F22;"}
 
 **The goal of this project is to answer these questions:**
 
-1\) How does financial stress vary across age groups, particularly among younger adults, in the U.S., and how does it differ by sex and race?
+1\) How does financial stress vary across age groups, particularly among younger adults, in the U.S., and how does it differ by sex, race, level of education, and income level?
 
-2\) How has financial stress for different age groups changed from 2007 to 2022
+2\) How has financial stress for different age groups changed from 2007 to 2022?
 
 ## View Data
 
 ```{r}
 # Define the file path (going up one level from /scripts to the main directory)
-file_path <- file.path("..", "data", "02data.sav")
+file_path <- file.path("..", "data", "24data.sav")
 
 # Load the SAV file into a dataframe (automatically a tibble)
 df <- read_sav(file_path)
@@ -35,7 +37,7 @@ head(df)
 #### Column Names
 
 ```{r colnames}
-# Check colum names
+# Check colunm names
 colnames(df)
 ```
 
@@ -53,34 +55,443 @@ summary(df)
 glimpse(df)
 ```
 
-## Frequency Tables
+------------------------------------------------------------------------
 
-Here are some of my frequency tables: \[Age, Race, and Highest Level of Education\]
+## 🪙 Individual Frequency Tables 🪙 {style="color:#FF1F22;"}
 
-### Age
+Here are some of my completed frequency tables: \[Age, Race, and Highest Level of Education, Sex, and Income Level\]
+
+### 🔋Demographics: {style="color:#F4AA0B;"}
+
+#### Age {style="color:#C1EF0B;"}
 
 ```{r}
 #Frequency table for age
-freq(as.ordered(df$DMAGE),plot=TRUE)
+library(dplyr)
+
+#Age groups
+df <- df %>%
+  mutate(
+    Age_Grouped = case_when(
+      DMAGE >= 18 & DMAGE <= 29 ~ "18-29 (Younger Adults)",
+      DMAGE >= 30 & DMAGE <= 49 ~ "30-49 (Middle Adults)",
+      DMAGE >= 50 & DMAGE <= 64 ~ "50-64 (Older Adults)",
+      DMAGE >= 65              ~ "65+ (Seniors)",
+    )
+  )
+
+freq(df$Age_Grouped, plot = TRUE)
 ```
 
-**Interpretation:** By looking at frequency table of age groups, I can identify how many respondents fall into each age bracket. This allows you to see whether younger adults are heavily represented and to focus analysis on them. I want to figure out if younger adults experience higher financial stress than older populations.
+**Interpretation:** By looking at frequency table of age groups, I can identify how many respondents fall into each age bracket. This allows you to see whether younger adults are heavily represented and to focus analysis on them. I want to figure out if younger adults experience higher financial stress than older populations. From the graph I see that middle aged adults tended to be more reported in the survey.
 
-### Race
+**Management**: The original variable, `DMAGE`, was a continuous variable but I wanted to analyze age groups instead of individual years, so I used the `mutate()` and **`case_when()`** functions from the `dplyr` package. This created `Age_Grouped`, which binned the respondents into four distinct groups (18-29, 30-49, 50-64, and 65+). The new variable is necessary for specifically examining financial stress among younger adults.
+
+**Graphing**: Since this is a categorical variable. I choose to present this with a bar chart.
+
+**Summary**:
+
+**‼️‼️For categorical variables, what response category shows the modal (i.e. most common) frequency and which shows the least common? Some categorical variables are ordered (e.g. 1=strongly agree, 2=agree, 3=neither agree nor disagree, 4=disagree, 5=strongly disagree).**
+
+**For quantitative variables, describe the shape (i.e. symmetry/skewness and modality), center (i.e. midpoint) and spread (i.e. range) of the distribution, as well as any outliers. For ordered variables what is the modal frequency and is there anything that can be said about the shape, center, and spread of the distribution?‼️‼️**
+
+------------------------------------------------------------------------
+
+#### Race {style="color:#C1EF0B;"}
 
 ```{r}
 #Frequency table for race
-freq(as.ordered(df$FINRACEUS),plot=TRUE)
+
+df$Race_Labeled <- factor(
+  df$FINRACEMUS,
+  
+  levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 99),
+  
+  labels = c("White", 
+             "Black or African American", 
+             "Native American or Alaskan Native", 
+             "South Asian", 
+             "Chinese",
+             "Korean",
+             "Japanese", 
+             "Filipino", 
+             "Arab/West Asian",
+             "Pacific Islander",
+             "Other Asian", 
+             "Mixed Race", 
+             "Some other race",
+             "Hispanic",
+             "Prefer not to answer")
+)
+
+freq(df$Race_Labeled, plot = TRUE)
+
+library(janitor) 
+race_counts <- table(df$Race_Labeled)
+barplot(race_counts, 
+        main="Frequency of Respondents by Race", 
+        xlab="Race", 
+        ylab="Number of Respondents", 
+        col="lightgreen")
 ```
 
-**Interpretation:** Comparing financial stress across racial groups can reveal disparities in experiences. Systemic factors like income inequality or access to financial resources can add to a demographic's level of financial stress.
+**Interpretation:** Comparing financial stress across racial groups can reveal disparities in experiences. Systemic factors like income inequality or access to financial resources can add to a demographic's level of financial stress. It appears that the majority of respondents identify as White, followed by Hispanic/Latino, with other racial groups less represented..
 
-### Highest Level of Education
+**Management**: The `FINRACEUS` variable was coded using numbers. To make the output tables easier to read without looking at the codebook, I used the **`factor()`** function to re-label of these numeric codes into descriptive categories to visualize the distribution across actual racial groups.
+
+**Graphing**: XXXunder_constructionXXX
+
+**Summary**:
+
+------------------------------------------------------------------------
+
+#### Highest Level of Education {style="color:#C1EF0B;"}
 
 ```{r}
 #Frequency table for Highest Level of Education
-freq(as.ordered(df$DMEDUUS),plot=TRUE)
+df$Level_of_Education <- factor(
+  df$DMEDUUS,
+  
+  levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9),
+  
+  labels = c("Less than high school",
+             "Completed some high school",
+             "High school graduate",
+             "Job-specific training program(s) after high school",
+             "Some college, but no degress",
+             "Associate degree",
+             "Bachelor's degree(such as B.A., B.S.",
+             "Some graduate school, but no degree",
+             "Graduate degree")
+)
+freq(as.ordered(df$Level_of_Education),plot=TRUE)
+```
+
+**Interpretation:** Education level often correlates with financial security and earning potential. Examining the distribution of education categories helps me evaluate whether stress is concentrated among those with lower educational attainment or if higher education buffers financial stress in modern America.
+
+**Management**: Similarly, the `DMEDUUS` variable contained numeric codes for education level. I used the **`factor()`** function again to re-label these codes (1 through 9) into their corresponding descriptive categories.
+
+**Graphing**: XXXunder_constructionXXX
+
+------------------------------------------------------------------------
+
+#### Sex at Birth {style="color:#C1EF0B;"}
+
+```{r colnames}
+#Label
+df$sex_label <- factor(df$Q268B, 
+                       levels = c(1, 2), 
+                       labels = c("Male", "Female"))
+#Basic Frequency table
+table(df$sex_label)
+freq(as.ordered(df$sex_label), plot=TRUE)
+
+#Data frame
+sex_counts <- table(df$sex_label)
+sex_df <- as.data.frame(sex_counts)
+colnames(sex_df) <- c("Sex", "Count")
+
+#Percentages
+sex_df$Percent <- round(sex_df$Count / sum(sex_df$Count) * 100, 1)
+sex_df$Label <- paste0(sex_df$Percent, "%")
+
+#Pie chart ~ Because I Just Wanna Look at Pie Charts <3
+ggplot(sex_df, aes(x = "", y = Count, fill = Sex)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("#97BBF2", "#FB7EB6")) +
+  geom_text(aes(label = Label),
+            position = position_stack(vjust = 0.5),
+            color = "black",
+            size = 8,  # text size inside slices
+            lineheight = 1.1) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(
+      hjust = 0.5,
+      size = 20,
+      face = "bold",
+      family = "sans"
+    )
+  ) +
+  labs(title = "Distribution of Respondents by Sex")
+```
+
+**Interpretation:** XXXunder_constructionXXX
+
+**Management**: XXXunder_constructionXXX
+
+**Graphing**: XXXunder_constructionXXX
+
+------------------------------------------------------------------------
+
+#### Income Level {style="color:#C1EF0B;"}
+
+```{r}
+#Frequency table for income level
+library(dplyr)
+library(summarytools)
+
+df <- df %>%
+  mutate(
+    Income_Group = case_when(
+      Q6521 %in% 1:4   ~ "<$50K",
+      Q6521 %in% 5:9   ~ "$50–99K",
+      Q6521 %in% 10:15 ~ "$100–149K",
+      Q6521 %in% 16:18 ~ "$150–199K",
+      Q6521 %in% 19:22 ~ "$200–299K",
+      Q6521 %in% 23:30 ~ "$300–499K",
+      Q6521 == 31      ~ "$500K+",
+      Q6521 %in% c(98,99) ~ NA_character_   # unknown/missing
+    ),
+    Income_Group = factor(Income_Group,
+                          levels = c("<$50K", "$50–99K", "$100–149K",
+                                     "$150–199K", "$200–299K",
+                                     "$300–499K", "$500K+"))
+  ) %>%
+  filter(!is.na(Income_Group))  # optional: remove unknowns
+
+# Now use freq() on the grouped variable
+freq(df$Income_Group, plot = TRUE)
+```
+
+```{r}
+#Frequency table for poverty level
+freq(as.ordered(df$Q6522),plot=TRUE) 
+#200% POVERTY OR BELOW .2 ABOVE 200% LEVEL. 3 NOT SURE/DECLINE TO ANSWER
+```
+
+**Interpretation:** XXXunder_constructionXXX
+
+**Management**: XXXunder_constructionXXX
+
+**Graphing**: XXXunder_constructionXXX
+
+------------------------------------------------------------------------
+
+### 🪫Financial Stress: {style="color:#F4AA0B;"}
+
+#### Present Money Stress {style="color:#C1EF0B;"}
+
+```{r colnames}
+#Frequency table for poverty level
+freq(as.ordered(df$Q625R1),plot=TRUE)
+
+#Histogram example
+hist(df$Q625R1, 
+     main="Distribution of Present 2023 Money Stress", 
+     xlab="Average Money Stress Scale", 
+     ylab="Number of Respondents",
+     col="red", 
+     border="white")
+```
+
+**Interpretation:** XXXunder_constructionXXX
+
+**Management**: XXXunder_constructionXXX
+
+**Graphing**: Since this is on a scale, this makes it a quantative variable. I choose to present this with a histogram graph to show the distribution or a boxplot to spot outliers.
+
+------------------------------------------------------------------------
+
+#### Average Money Stress {style="color:#C1EF0B;"}
+
+```{r colnames}
+freq(as.ordered(df$Q605),plot=TRUE)
+#Next we have some questions about stress.On a scale of 1 to 10,where 1 means you have ''little or no stress'' and 10 means you have ''a great deal of stress,'' how would you rate your average level of stress during the past month?
 
 ```
 
-**Interpretation:** Education level often correlates with financial security and earning potential. Examining the distribution of education categories helps me evalute whether stress is concentrated among those with lower educational attainment or if higher education buffers financial stress in modern America.
+**Interpretation:** XXXunder_constructionXXX
+
+**Management**: XXXunder_constructionXXX
+
+**Graphing**: Since this is on a scale, this makes it a quantative variable. I choose to present this with a histogram graph to show the distribution or a boxplot to spot outliers.
+
+------------------------------------------------------------------------
+
+#### Increase or Decrease Stress {style="color:#C1EF0B;"}
+
+```{r colnames}
+freq(as.ordered(df$Q631),plot=TRUE)
+levels=c(1, 2, 3 )
+
+labels = c("Increased",
+           "Stayed the same",
+           "Decreased",
+           )
+```
+
+**Interpretation:** XXXunder_constructionXXX
+
+**Management**: XXXunder_constructionXXX
+
+**Graphing**: XXXunder_constructionXXX
+
+------------------------------------------------------------------------
+
+#### Economy {style="color:#C1EF0B;"}
+
+```{r colnames}
+freq(as.ordered(df$Q625R8),plot=TRUE)
+levels=c(1, 2, 3, 4)
+
+labels = c("Not at all significant",
+           "Not very significant",
+           "Somewhat significant",
+           "Very significant")
+```
+
+**Interpretation:** XXXunder_constructionXXX
+
+**Management**: XXXunder_constructionXXX
+
+**Graphing**: XXXunder_constructionXXX
+
+------------------------------------------------------------------------
+
+#### Housing Costs {style="color:#C1EF0B;"}
+
+```{r colnames}
+
+levels=c(1, 2, 3, 4)
+
+labels = c("Not at all significant",
+           "Not very significant",
+           "Somewhat significant",
+           "Very significant")
+freq(as.ordered(df$Q625R7),plot=TRUE)
+```
+
+**Interpretation:** XXXunder_constructionXXX
+
+**Management**: XXXunder_constructionXXX
+
+**Graphing**: XXXunder_constructionXXX
+
+------------------------------------------------------------------------
+
+## Univariate Graphs
+
+```{r}
+#Frequency table for age
+df$Age_Grouped <- factor(df$Age_Grouped,
+                         levels = c("18-29 (Younger Adults)",
+                                    "30-49 (Middle Adults)",
+                                    "50-64 (Older Adults)",
+                                    "65+ (Seniors)"))
+
+age_counts <- table(df$Age_Grouped)
+
+# Bar plot
+barplot(age_counts,
+        main = "Distribution of Respondents by Age Group",
+        xlab = "Age Group",
+        ylab = "Number of Respondents",
+        col = c("lightblue", "skyblue", "steelblue", "navy"),
+        border = "white")
+
+text(x = seq_along(age_counts),
+     y = age_counts,
+     labels = age_counts,
+     pos = 3,   # position above bar
+     cex = 0.8, # text size
+     col = "black")
+```
+
+**Interpretation:** By looking at frequency table of age groups, I can identify how many respondents fall into each age bracket. This allows me to see whether younger adults are heavily represented and to focus analysis on them. I want to figure out if younger adults experience higher financial stress than older populations. From the graph I see that middle aged adults tended to make up the largest proportion of the sample while younger adults are the smallest group.
+
+```{r colnames}
+
+df$sex_label <- factor(df$Q268B, 
+                       levels = c(1, 2), 
+                       labels = c("Male", "Female"))
+#Basic Frequency table
+table(df$sex_label)
+freq(as.ordered(df$sex_label), plot=TRUE)
+
+#Data frame
+sex_counts <- table(df$sex_label)
+sex_df <- as.data.frame(sex_counts)
+colnames(sex_df) <- c("Sex", "Count")
+
+#Percentages
+sex_df$Percent <- round(sex_df$Count / sum(sex_df$Count) * 100, 1)
+sex_df$Label <- paste0(sex_df$Percent, "%")
+
+#Pie chart ~ Because I Just Wanna Look at Pie Charts <3
+ggplot(sex_df, aes(x = "", y = Count, fill = Sex)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("#97BBF2", "#FB7EB6")) +
+  geom_text(aes(label = Label),
+            position = position_stack(vjust = 0.5),
+            color = "black",
+            size = 8,  # text size inside slices
+            lineheight = 1.1) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(
+      hjust = 0.5,
+      size = 20,
+      face = "bold",
+      family = "sans"
+    )
+  ) +
+  labs(title = "Distribution of Respondents by Sex")
+```
+
+**Interpretation:** By looking at frequency table of age groups, I can identify how many respondents are male or female. I want to figure out if females experience higher financial stress than older populations. From the graph I see that the female sex tended to be more reported in sample.
+
+## Bivariate Graphs
+
+```{r colnames}
+
+df <- df %>%
+  mutate(
+    Sex = case_when(
+      Q268B == 1 ~ "Male",
+      Q268B == 2 ~ "Female",
+      TRUE ~ NA_character_
+    ),
+    Sex = as.factor(Sex),
+    Age_Grouped = as.factor(Age_Grouped)
+  )
+
+ggplot(df, aes(x = Age_Grouped, y = Q605, fill = Sex)) +
+  geom_boxplot(outlier.color = "black", outlier.shape = 3, outlier.size = 1) +
+  scale_fill_manual(values = c("pink", "skyblue")) +
+  labs(
+    title = "Financial Stress Across Age Groups by Sex",
+    x = "Age Group",
+    y = "Average Money Stress",
+    fill = "Sex"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.text.x = element_text(angle = 15, vjust = 0.8)
+  )
+
+```
+
+**Interpretation:** My explanatory variable is the age group, my response variable is the avaerage financial stress and the moderator variable (or third explanatory variable) is sex in order to see the different pattern for men and women. Younger adults report higher financial stress levels overall, but women show slightly higher median stress than men in most age groups.
+
+```{r colnames}
+library(dplyr)
+library(ggplot2)
+
+ggplot(df, aes(x = Age_Grouped, y = Q625R7, fill = Age_Grouped)) +
+  geom_violin(trim = FALSE, alpha = 0.7) +
+  labs(
+    title = "Housing Cost Stress by Age Group",
+    x = "Age Group",
+    y = "Housing Cost Stress"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1), legend.position = "none")
+```
+
+**Interpretation:** My explanatory variable is the age group, my response variable is the level of housing cost stress. As age increases, average housing cost stress tends to decrease, suggesting older adults may experience less housing-related financial strain than younger adults.

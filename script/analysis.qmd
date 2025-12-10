@@ -1,4 +1,5 @@
 ---
+learnr::run_tu---
 title: "analysis"
 format: html
 ---
@@ -8,16 +9,21 @@ library(tidyverse)
 library(labelled)
 library(haven)
 library(knitr)
-library(descr)
 library(ggplot2)
+library(descr)
 library(dplyr)
+library(summarytools)
+library(car)
+library(rstatix)
+library(psych)
+library(lsr)
 ```
 
 # 💵 Financial Stress in America 💴 {style="color:#FF1F22;"}
 
 **The goal of this project is to answer these questions:**
 
-1\) How does financial stress vary across age groups, particularly among younger adults, in the U.S., and how does it differ by sex, race, level of education, and income level?
+1\) How does financial stress vary across age groups, particularly among younger adults, in the U.S., and how does it differ by age and level of education?
 
 2\) How has financial stress for different age groups changed from 2007 to 2022?
 
@@ -34,36 +40,15 @@ df <- read_sav(file_path)
 head(df)
 ```
 
-#### Column Names
-
-```{r colnames}
-# Check colunm names
-colnames(df)
-```
-
-#### Viewing summary statistics
-
-```{r summary}
-#View summary statistics
-summary(df)
-```
-
-#### Checking variable types
-
-```{r glimpse}
-#Check the data structure
-glimpse(df)
-```
-
 ------------------------------------------------------------------------
 
 ## 🪙 Individual Frequency Tables 🪙 {style="color:#FF1F22;"}
 
 Here are some of my completed frequency tables: \[Age, Race, and Highest Level of Education, Sex, and Income Level\]
 
-### 🔋Demographics: {style="color:#F4AA0B;"}
+### Demographics: {style="color:#F4AA0B;"}
 
-#### Age {style="color:#C1EF0B;"}
+#### Age (Univariate) {style="color:#C1EF0B;"}
 
 ```{r}
 #Frequency table for age
@@ -81,6 +66,29 @@ df <- df %>%
   )
 
 freq(df$Age_Grouped, plot = TRUE)
+
+ggplot(df, aes(x = Age_Grouped)) +
+  # Create the bar geometry (using a slightly different color for distinction)
+  geom_bar(fill = "#2ECC71", color = "black", alpha = 0.8) +
+  
+  # Add counts above the bars for clarity
+  geom_text(stat='count', aes(label=after_stat(count)), 
+            vjust=-0.5, size=3.5) +
+  
+  # Set up labels and title
+  labs(
+    title = "Distribution of Survey Respondents by Age Group",
+    subtitle = "A critical variable for longitudinal financial stress analysis",
+    x = "Age Group",
+    y = "Frequency (Number of Respondents)"
+  ) +
+  
+  # Apply a clean, academic theme and adjust text
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.text.x = element_text(angle = 15, hjust = 1) # Angle labels for clarity
+  )
 ```
 
 **Interpretation:** By looking at frequency table of age groups, I can identify how many respondents fall into each age bracket. This allows you to see whether younger adults are heavily represented and to focus analysis on them. I want to figure out if younger adults experience higher financial stress than older populations. From the graph I see that middle aged adults tended to be more reported in the survey.
@@ -89,409 +97,348 @@ freq(df$Age_Grouped, plot = TRUE)
 
 **Graphing**: Since this is a categorical variable. I choose to present this with a bar chart.
 
-**Summary**:
-
-**‼️‼️For categorical variables, what response category shows the modal (i.e. most common) frequency and which shows the least common? Some categorical variables are ordered (e.g. 1=strongly agree, 2=agree, 3=neither agree nor disagree, 4=disagree, 5=strongly disagree).**
-
-**For quantitative variables, describe the shape (i.e. symmetry/skewness and modality), center (i.e. midpoint) and spread (i.e. range) of the distribution, as well as any outliers. For ordered variables what is the modal frequency and is there anything that can be said about the shape, center, and spread of the distribution?‼️‼️**
+------------------------------------------------------------------------
 
 ------------------------------------------------------------------------
 
-#### Race {style="color:#C1EF0B;"}
-
-```{r}
-#Frequency table for race
-
-df$Race_Labeled <- factor(
-  df$FINRACEMUS,
-  
-  levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 99),
-  
-  labels = c("White", 
-             "Black or African American", 
-             "Native American or Alaskan Native", 
-             "South Asian", 
-             "Chinese",
-             "Korean",
-             "Japanese", 
-             "Filipino", 
-             "Arab/West Asian",
-             "Pacific Islander",
-             "Other Asian", 
-             "Mixed Race", 
-             "Some other race",
-             "Hispanic",
-             "Prefer not to answer")
-)
-
-freq(df$Race_Labeled, plot = TRUE)
-
-library(janitor) 
-race_counts <- table(df$Race_Labeled)
-barplot(race_counts, 
-        main="Frequency of Respondents by Race", 
-        xlab="Race", 
-        ylab="Number of Respondents", 
-        col="lightgreen")
-```
-
-**Interpretation:** Comparing financial stress across racial groups can reveal disparities in experiences. Systemic factors like income inequality or access to financial resources can add to a demographic's level of financial stress. It appears that the majority of respondents identify as White, followed by Hispanic/Latino, with other racial groups less represented..
-
-**Management**: The `FINRACEUS` variable was coded using numbers. To make the output tables easier to read without looking at the codebook, I used the **`factor()`** function to re-label of these numeric codes into descriptive categories to visualize the distribution across actual racial groups.
-
-**Graphing**: XXXunder_constructionXXX
-
-**Summary**:
-
-------------------------------------------------------------------------
-
-#### Highest Level of Education {style="color:#C1EF0B;"}
+#### Highest Level of Education (Univariate) {style="color:#C1EF0B;"}
 
 ```{r}
 #Frequency table for Highest Level of Education
-df$Level_of_Education <- factor(
-  df$DMEDUUS,
+df <- df %>%
+  mutate(
+    Education_Condensed = case_when(
+      DMEDUUS %in% 1:3 ~ "High School Diploma or Less", 
+      DMEDUUS %in% 4:5 ~ "Some College or Training",
+      DMEDUUS %in% 6:7 ~ "Associate or Bachelor's Degree", 
+      DMEDUUS %in% 8:9 ~ "Graduate Degree",
+      TRUE ~ NA_character_ 
+    ),
+    
+    # ordered factor for plotting
+    Education_Condensed = factor(Education_Condensed,
+                                 levels = c("High School Diploma or Less", 
+                                            "Some College or Training",
+                                            "Associate or Bachelor's Degree", 
+                                            "Graduate Degree"),
+                                 ordered = TRUE)
+  )
+
+ggplot(df, aes(x = Education_Condensed)) +
+  # Create the bar geometry
+  geom_bar(fill = "#5DADE2", color = "black", alpha = 0.8) +
   
-  levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9),
+  # Add counts above the bars for clarity
+  geom_text(stat='count', aes(label=after_stat(count)), 
+            vjust=-0.5, size=3.5) +
   
-  labels = c("Less than high school",
-             "Completed some high school",
-             "High school graduate",
-             "Job-specific training program(s) after high school",
-             "Some college, but no degress",
-             "Associate degree",
-             "Bachelor's degree(such as B.A., B.S.",
-             "Some graduate school, but no degree",
-             "Graduate degree")
-)
-freq(as.ordered(df$Level_of_Education),plot=TRUE)
+  # Set up labels and title
+  labs(
+    title = "Distribution of Respondents by Condensed Education Level",
+    subtitle = "Grouping DMEDUUS into Four Attainment Categories",
+    x = "Education Level",
+    y = "Frequency (Number of Respondents)"
+  ) +
+  
+  # Apply a clean, academic theme and adjust text for readability
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.text.x = element_text(angle = 15, hjust = 1) # Slight angle for long labels
+  )
 ```
 
 **Interpretation:** Education level often correlates with financial security and earning potential. Examining the distribution of education categories helps me evaluate whether stress is concentrated among those with lower educational attainment or if higher education buffers financial stress in modern America.
 
 **Management**: Similarly, the `DMEDUUS` variable contained numeric codes for education level. I used the **`factor()`** function again to re-label these codes (1 through 9) into their corresponding descriptive categories.
 
-**Graphing**: XXXunder_constructionXXX
-
 ------------------------------------------------------------------------
 
-#### Sex at Birth {style="color:#C1EF0B;"}
+### Financial Stress: {style="color:#F4AA0B;"}
+
+#### Average Money Stress (Univariate) {style="color:#C1EF0B;"}
 
 ```{r colnames}
-#Label
-df$sex_label <- factor(df$Q268B, 
-                       levels = c(1, 2), 
-                       labels = c("Male", "Female"))
-#Basic Frequency table
-table(df$sex_label)
-freq(as.ordered(df$sex_label), plot=TRUE)
-
-#Data frame
-sex_counts <- table(df$sex_label)
-sex_df <- as.data.frame(sex_counts)
-colnames(sex_df) <- c("Sex", "Count")
-
-#Percentages
-sex_df$Percent <- round(sex_df$Count / sum(sex_df$Count) * 100, 1)
-sex_df$Label <- paste0(sex_df$Percent, "%")
-
-#Pie chart ~ Because I Just Wanna Look at Pie Charts <3
-ggplot(sex_df, aes(x = "", y = Count, fill = Sex)) +
-  geom_bar(stat = "identity", width = 1, color = "white") +
-  coord_polar(theta = "y") +
-  scale_fill_manual(values = c("#97BBF2", "#FB7EB6")) +
-  geom_text(aes(label = Label),
-            position = position_stack(vjust = 0.5),
-            color = "black",
-            size = 8,  # text size inside slices
-            lineheight = 1.1) +
-  theme_void() +
-  theme(
-    legend.position = "right",
-    plot.title = element_text(
-      hjust = 0.5,
-      size = 20,
-      face = "bold",
-      family = "sans"
-    )
-  ) +
-  labs(title = "Distribution of Respondents by Sex")
-```
-
-**Interpretation:** XXXunder_constructionXXX
-
-**Management**: XXXunder_constructionXXX
-
-**Graphing**: XXXunder_constructionXXX
-
-------------------------------------------------------------------------
-
-#### Income Level {style="color:#C1EF0B;"}
-
-```{r}
-#Frequency table for income level
-library(dplyr)
-library(summarytools)
-
 df <- df %>%
   mutate(
-    Income_Group = case_when(
-      Q6521 %in% 1:4   ~ "<$50K",
-      Q6521 %in% 5:9   ~ "$50–99K",
-      Q6521 %in% 10:15 ~ "$100–149K",
-      Q6521 %in% 16:18 ~ "$150–199K",
-      Q6521 %in% 19:22 ~ "$200–299K",
-      Q6521 %in% 23:30 ~ "$300–499K",
-      Q6521 == 31      ~ "$500K+",
-      Q6521 %in% c(98,99) ~ NA_character_   # unknown/missing
-    ),
-    Income_Group = factor(Income_Group,
-                          levels = c("<$50K", "$50–99K", "$100–149K",
-                                     "$150–199K", "$200–299K",
-                                     "$300–499K", "$500K+"))
-  ) %>%
-  filter(!is.na(Income_Group))  # optional: remove unknowns
+    #ordered factor (1 to 10 scale)
+    Stress_Score = factor(Q605, 
+                          levels = 1:10, 
+                          ordered = TRUE)
+  )
 
-# Now use freq() on the grouped variable
-freq(df$Income_Group, plot = TRUE)
+# --- 2. Visualization (Bar Chart/Frequency Plot) ---
+ggplot(df, aes(x = Stress_Score, fill = Stress_Score)) +
+  # Use geom_bar to show frequency for each discrete stress level
+  geom_bar(color = "black", show.legend = FALSE, width = 0.8) +
+  
+  # Add counts above the bars
+  geom_text(stat='count', aes(label=after_stat(count)), vjust=-0.5, size=3) +
+  
+  # Apply a gradient color scale (optional, but visually appealing)
+  scale_fill_manual(values = colorRampPalette(c("#C8E6C9", "#E57373"))(10)) +
+  
+  # Set up labels and title
+  labs(
+    title = "Distribution of Average Money Stress in the U.S.",
+    subtitle = "Reported Stress Levels on a 1 (Low) to 10 (High) Scale",
+    x = "Average Money Stress Score (1 = Lowest Stress, 10 = Highest Stress)",
+    y = "Frequency (Number of Respondents)"
+  ) +
+  
+  # Apply a clean, academic theme
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    axis.text.x = element_text(size = 10)
+  )
 ```
-
-```{r}
-#Frequency table for poverty level
-freq(as.ordered(df$Q6522),plot=TRUE) 
-#200% POVERTY OR BELOW .2 ABOVE 200% LEVEL. 3 NOT SURE/DECLINE TO ANSWER
-```
-
-**Interpretation:** XXXunder_constructionXXX
-
-**Management**: XXXunder_constructionXXX
-
-**Graphing**: XXXunder_constructionXXX
-
-------------------------------------------------------------------------
-
-### 🪫Financial Stress: {style="color:#F4AA0B;"}
-
-#### Present Money Stress {style="color:#C1EF0B;"}
-
-```{r colnames}
-#Frequency table for poverty level
-freq(as.ordered(df$Q625R1),plot=TRUE)
-
-#Histogram example
-hist(df$Q625R1, 
-     main="Distribution of Present 2023 Money Stress", 
-     xlab="Average Money Stress Scale", 
-     ylab="Number of Respondents",
-     col="red", 
-     border="white")
-```
-
-**Interpretation:** XXXunder_constructionXXX
-
-**Management**: XXXunder_constructionXXX
-
-**Graphing**: Since this is on a scale, this makes it a quantative variable. I choose to present this with a histogram graph to show the distribution or a boxplot to spot outliers.
-
-------------------------------------------------------------------------
-
-#### Average Money Stress {style="color:#C1EF0B;"}
-
-```{r colnames}
-freq(as.ordered(df$Q605),plot=TRUE)
-#Next we have some questions about stress.On a scale of 1 to 10,where 1 means you have ''little or no stress'' and 10 means you have ''a great deal of stress,'' how would you rate your average level of stress during the past month?
-
-```
-
-**Interpretation:** XXXunder_constructionXXX
-
-**Management**: XXXunder_constructionXXX
-
-**Graphing**: Since this is on a scale, this makes it a quantative variable. I choose to present this with a histogram graph to show the distribution or a boxplot to spot outliers.
-
-------------------------------------------------------------------------
-
-#### Increase or Decrease Stress {style="color:#C1EF0B;"}
-
-```{r colnames}
-freq(as.ordered(df$Q631),plot=TRUE)
-levels=c(1, 2, 3 )
-
-labels = c("Increased",
-           "Stayed the same",
-           "Decreased",
-           )
-```
-
-**Interpretation:** XXXunder_constructionXXX
-
-**Management**: XXXunder_constructionXXX
-
-**Graphing**: XXXunder_constructionXXX
-
-------------------------------------------------------------------------
-
-#### Economy {style="color:#C1EF0B;"}
-
-```{r colnames}
-freq(as.ordered(df$Q625R8),plot=TRUE)
-levels=c(1, 2, 3, 4)
-
-labels = c("Not at all significant",
-           "Not very significant",
-           "Somewhat significant",
-           "Very significant")
-```
-
-**Interpretation:** XXXunder_constructionXXX
-
-**Management**: XXXunder_constructionXXX
-
-**Graphing**: XXXunder_constructionXXX
-
-------------------------------------------------------------------------
-
-#### Housing Costs {style="color:#C1EF0B;"}
-
-```{r colnames}
-
-levels=c(1, 2, 3, 4)
-
-labels = c("Not at all significant",
-           "Not very significant",
-           "Somewhat significant",
-           "Very significant")
-freq(as.ordered(df$Q625R7),plot=TRUE)
-```
-
-**Interpretation:** XXXunder_constructionXXX
-
-**Management**: XXXunder_constructionXXX
-
-**Graphing**: XXXunder_constructionXXX
 
 ------------------------------------------------------------------------
 
 ## Univariate Graphs
 
 ```{r}
-#Frequency table for age
-df$Age_Grouped <- factor(df$Age_Grouped,
-                         levels = c("18-29 (Younger Adults)",
-                                    "30-49 (Middle Adults)",
-                                    "50-64 (Older Adults)",
-                                    "65+ (Seniors)"))
+age_data_summary <- df %>%
+  # Filter out NA's before counting
+  filter(!is.na(Age_Grouped)) %>% 
+  group_by(Age_Grouped) %>%
+  summarize(Count = n()) %>%
+  ungroup()
 
-age_counts <- table(df$Age_Grouped)
-
-# Bar plot
-barplot(age_counts,
-        main = "Distribution of Respondents by Age Group",
-        xlab = "Age Group",
-        ylab = "Number of Respondents",
-        col = c("lightblue", "skyblue", "steelblue", "navy"),
-        border = "white")
-
-text(x = seq_along(age_counts),
-     y = age_counts,
-     labels = age_counts,
-     pos = 3,   # position above bar
-     cex = 0.8, # text size
-     col = "black")
+# --- 3. Visualization (Point and Line Plot) ---
+ggplot(age_data_summary, aes(x = Age_Grouped, y = Count, group = 1)) +
+  
+  # Add the line component
+  geom_line(color = "#3498DB", linewidth = 1.2) +
+  
+  # Add the point component (to mark the exact count for each group)
+  geom_point(color = "#2980B9", size = 4) +
+  
+  # Add labels above the points
+  geom_text(aes(label = Count), 
+            vjust = -1,  # Position the text above the point
+            size = 4, 
+            color = "#2C3E50") +
+  
+  # Set up labels and title
+  labs(
+    title = "Respondent Frequency Across Age Groups",
+    subtitle = "A Line Chart Representation of Age Distribution",
+    x = "Age Group",
+    y = "Number of Respondents (Frequency)"
+  ) +
+  
+  # Apply a clean theme and adjust text
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.text.x = element_text(angle = 15, hjust = 1) # Angle labels for clarity
+  )
 ```
 
 **Interpretation:** By looking at frequency table of age groups, I can identify how many respondents fall into each age bracket. This allows me to see whether younger adults are heavily represented and to focus analysis on them. I want to figure out if younger adults experience higher financial stress than older populations. From the graph I see that middle aged adults tended to make up the largest proportion of the sample while younger adults are the smallest group.
 
 ```{r colnames}
-
-df$sex_label <- factor(df$Q268B, 
-                       levels = c(1, 2), 
-                       labels = c("Male", "Female"))
-#Basic Frequency table
-table(df$sex_label)
-freq(as.ordered(df$sex_label), plot=TRUE)
-
-#Data frame
-sex_counts <- table(df$sex_label)
-sex_df <- as.data.frame(sex_counts)
-colnames(sex_df) <- c("Sex", "Count")
-
-#Percentages
-sex_df$Percent <- round(sex_df$Count / sum(sex_df$Count) * 100, 1)
-sex_df$Label <- paste0(sex_df$Percent, "%")
-
-#Pie chart ~ Because I Just Wanna Look at Pie Charts <3
-ggplot(sex_df, aes(x = "", y = Count, fill = Sex)) +
-  geom_bar(stat = "identity", width = 1, color = "white") +
-  coord_polar(theta = "y") +
-  scale_fill_manual(values = c("#97BBF2", "#FB7EB6")) +
-  geom_text(aes(label = Label),
-            position = position_stack(vjust = 0.5),
-            color = "black",
-            size = 8,  # text size inside slices
-            lineheight = 1.1) +
-  theme_void() +
-  theme(
-    legend.position = "right",
-    plot.title = element_text(
-      hjust = 0.5,
-      size = 20,
-      face = "bold",
-      family = "sans"
-    )
-  ) +
-  labs(title = "Distribution of Respondents by Sex")
-```
-
-**Interpretation:** By looking at frequency table of age groups, I can identify how many respondents are male or female. I want to figure out if females experience higher financial stress than older populations. From the graph I see that the female sex tended to be more reported in sample.
-
-## Bivariate Graphs
-
-```{r colnames}
-
-df <- df %>%
-  mutate(
-    Sex = case_when(
-      Q268B == 1 ~ "Male",
-      Q268B == 2 ~ "Female",
-      TRUE ~ NA_character_
-    ),
-    Sex = as.factor(Sex),
-    Age_Grouped = as.factor(Age_Grouped)
-  )
-
-ggplot(df, aes(x = Age_Grouped, y = Q605, fill = Sex)) +
-  geom_boxplot(outlier.color = "black", outlier.shape = 3, outlier.size = 1) +
-  scale_fill_manual(values = c("pink", "skyblue")) +
-  labs(
-    title = "Financial Stress Across Age Groups by Sex",
-    x = "Age Group",
-    y = "Average Money Stress",
-    fill = "Sex"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.text.x = element_text(angle = 15, vjust = 0.8)
-  )
-
-```
-
-**Interpretation:** My explanatory variable is the age group, my response variable is the avaerage financial stress and the moderator variable (or third explanatory variable) is sex in order to see the different pattern for men and women. Younger adults report higher financial stress levels overall, but women show slightly higher median stress than men in most age groups.
-
-```{r colnames}
 library(dplyr)
 library(ggplot2)
 
-ggplot(df, aes(x = Age_Grouped, y = Q625R7, fill = Age_Grouped)) +
+ggplot(df, aes(x = Age_Grouped, y = Q605, fill = Age_Grouped)) +
   geom_violin(trim = FALSE, alpha = 0.7) +
   labs(
-    title = "Housing Cost Stress by Age Group",
+    title = "Average Level of Stress by Age Group",
     x = "Age Group",
-    y = "Housing Cost Stress"
+    y = "Level of Stress"
   ) +
   theme_minimal(base_size = 14) +
   theme(axis.text.x = element_text(angle = 30, hjust = 1), legend.position = "none")
 ```
 
 **Interpretation:** My explanatory variable is the age group, my response variable is the level of housing cost stress. As age increases, average housing cost stress tends to decrease, suggesting older adults may experience less housing-related financial strain than younger adults.
+
+# Hypothesis Testing
+
+Question: How is financial stress related to educational attainment in America, and are individuals with less formal education more likely to experience financial strain?
+
+Sample Description: This study will focus on a representative sample of U.S. adults and their reported levels of financial stress. The analysis will consider respondents’ educational attainment and their self-reported stress scores to explore patterns of financial strain across education levels.
+
+**Variables**:
+
+-   Explanatory Variable: Educational Attainment (DMEDUUS \[Level_of_Education\] & Age
+
+    -   Categorical Type
+
+-   Responsive Variable: Financial Stress (Average Stress Rating as of 2023) \[\$Q605\]
+
+    -   Quantitative Type
+
+**Null Hypothesis (H₀):** There is no relationship between educational attainment and financial stress among U.S. adults.
+
+**Alternative Hypothesis (Hₐ):** There is a relationship between educational attainment and financial stress among U.S. adults.
+
+Since educational attainment is a categorical variable, for its multiple education groups, and financial stress is a quantitative variable, the appropriate statistical test is an ANOVA test.
+
+# ANOVA
+
+### Set Up
+
+```{r}
+# Define the file path
+file_path <- file.path("..", "data", "24data.sav")
+df <- read_sav(file_path)
+
+# --- CLEANING & VARIABLE CREATION ---
+df <- df %>%
+  mutate(
+    # 1. Age Grouping
+    Age_Grouped = case_when(
+      DMAGE >= 18 & DMAGE <= 29 ~ "18-29 (Younger Adults)",
+      DMAGE >= 30 & DMAGE <= 49 ~ "30-49 (Middle Adults)",
+      DMAGE >= 50 & DMAGE <= 64 ~ "50-64 (Older Adults)",
+      DMAGE >= 65              ~ "65+ (Seniors)",
+      TRUE ~ NA_character_
+    ),
+    Age_Grouped = factor(Age_Grouped,
+                         levels = c("18-29 (Younger Adults)", "30-49 (Middle Adults)", 
+                                    "50-64 (Older Adults)", "65+ (Seniors)"),
+                         ordered = TRUE),
+    
+    # 2. Education Condensation
+    Education_Condensed = case_when(
+      DMEDUUS %in% 1:3 ~ "High School Diploma or Less", 
+      DMEDUUS %in% 4:5 ~ "Some College or Training",
+      DMEDUUS %in% 6:7 ~ "Associate or Bachelor's Degree", 
+      DMEDUUS %in% 8:9 ~ "Graduate Degree",
+      TRUE ~ NA_character_
+    ),
+    Education_Condensed = factor(Education_Condensed,
+                                 levels = c("High School Diploma or Less", "Some College or Training",
+                                            "Associate or Bachelor's Degree", "Graduate Degree"),
+                                 ordered = TRUE),
+    
+    # 3. Financial Stress Score (Dependent Variable)
+    # FIX: Robustly convert to numeric, essential for ANOVA calculations
+    Stress_Score_Numeric = as.numeric(as.character(Q605)) 
+  ) %>%
+  # Filter out missing values for the ANOVA
+  filter(!is.na(Stress_Score_Numeric) & 
+         !is.na(Age_Grouped) & 
+         !is.na(Education_Condensed))
+```
+
+### Descriptive
+
+```{r}
+xtabs(~ Age_Grouped + Education_Condensed, data = df)
+
+# Mean Average Stress Score by Age Group
+aggregate(Stress_Score_Numeric ~ Age_Grouped, data = df, mean)
+
+# Mean Average Stress Score by Education Group
+aggregate(Stress_Score_Numeric ~ Education_Condensed, data = df, mean)
+
+# Overall descriptive stats for the dependent variable (Average Stress)
+psych::describe(df$Stress_Score_Numeric)
+```
+
+```{r}
+ggplot(df, aes(x = Age_Grouped, y = Stress_Score_Numeric, color = Education_Condensed, group = Education_Condensed)) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+  stat_summary(fun = mean, geom = "line", linewidth = 1) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2) + # Standard Error
+  labs(
+    title = "Mean Financial Stress by Age and Education (Interaction Plot)",
+    x = "Age Group",
+    y = "Average Money Stress Score (1-10)",
+    color = "Education Level"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1),
+        plot.title = element_text(face = "bold", hjust = 0.5))
+
+```
+
+## Factorial Anova
+
+#### Model
+
+```{r}
+model_anova <- aov(Stress_Score_Numeric ~ Age_Grouped * Education_Condensed, data = df)
+
+```
+
+#### Assumptions
+
+```{r}
+df$Group_Combo <- interaction(df$Age_Grouped, df$Education_Condensed, sep = "_")
+leveneTest(Stress_Score_Numeric ~ Group_Combo, data = df)
+```
+
+```{r}
+df$Group_Combo <- interaction(df$Age_Grouped, df$Education_Condensed, sep = "_")
+leveneTest(Stress_Score_Numeric ~ Group_Combo, data = df)
+```
+
+```{r}
+sample_residuals <- sample(residuals(model_anova), 500)
+shapiro.test(sample_residuals)
+```
+
+#### Model Summary
+
+```{r}
+# Main ANOVA Table
+summary(model_anova)
+
+# Effect Size (Eta Squared)
+# Measures the proportion of total variance explained by each factor
+etaSquared(model_anova)
+```
+
+#### Post-Hoc Analysis (because we have differences in groups)
+
+```{r}
+# Run Tukey's Honest Significant Difference (HSD) test on the model
+TukeyHSD(model_anova)
+```
+
+## Interpretation:
+
+The two-way Analysis of Variance (ANOVA) revealed that both age group and education level have a significant effect on average money stress, but the interaction between these two factors was not significant.
+
+-   **Interaction Term:** The interaction between Age Group and Education Condensed was **not statistically significant** (F(9, 3155) = 1.61, p = 0.106). This confirms that the effect of age on financial stress is consistent across all levels of education.
+
+-   **Primary Predictor (Age):** There was a highly significant main effect of Age Group on financial stress, F(3, 3155) = 141.07, p \< 0.001. This effect size is considered large, indicating age is the strongest predictor of financial stress in this model.
+
+-   **Secondary Predictor (Education):** There was a statistically significant main effect of Education Condensed, F(3, 3155) = 3.12, p = 0.025. However, the effect size is **very small**, suggesting educational attainment plays a minor role overall.
+
+Detailed Post-Hoc Analysis (Tukey HSD)
+
+Since both main effects were statistically significant, Tukey's Honest Significant Difference (HSD) test was performed to identify which specific group means differed.
+
+1\. Age Group Differences
+
+Financial stress generally decreases as age increases. The Tukey test revealed significant differences between nearly all consecutive age groups (p \< 0.001 for all), confirming a robust age gradient in financial stress:
+
+-   **18-29 (Younger Adults)**: Showed significantly higher stress than the **50-64** and **65+ (Seniors)** groups.
+
+-   **30-49 (Middle Adults)**: Showed significantly higher stress than the **50-64** and **65+ (Seniors)** groups.
+
+-   **50-64 (Older Adults)**: Showed significantly higher stress than the **65+ (Seniors)** group.
+
+-   **Non-Significant Comparison:** The only non-significant difference in stress was between the **18-29** group and the **30-49** group (p=0.678), suggesting these two younger cohorts experience a similarly high level of financial strain.
+
+2\. Education Condensed Differences
+
+Despite the overall significant F test, the Tukey HSD revealed only one specific significant pairwise difference in education (at a=0.05\$):
+
+-   Individuals with **Some College or Training** reported **significantly higher** average money stress than those with an **Associate or Bachelor's Degree** (p=0.041).
+
+-   All other comparisons (e.g., Graduate Degree vs. High School Diploma or Less) were not statistically different.
+
+### Overall Conclusion
+
+The null hypothesis, "There is no relationship between educational attainment and financial stress," is rejected. However, the alternative hypothesis must be refined:
+
+**Final Result:** The analysis strongly supports the conclusion that **age is the primary demographic predictor of financial stress**, with younger and middle-aged adults reporting significantly higher stress than older adults. Educational attainment shows a complex, minor influence, primarily limited to higher stress in the 'Some College' group compared to those who completed an associate/bachelor's degree.
